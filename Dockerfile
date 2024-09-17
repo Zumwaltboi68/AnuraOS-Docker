@@ -1,5 +1,5 @@
 # Use the bookworm:slim base image
-FROM bookworm:slim
+FROM debian:latest
 
 # Set the working directory
 WORKDIR /build
@@ -10,10 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     wget \
     make \
+    clang \
     gcc \
     inotify-tools \
     openjdk-17-jdk \
     gnupg2 \
+    uuid-runtime \
     lsb-release \
     && rm -rf /var/lib/apt/lists/* 
 
@@ -37,11 +39,10 @@ RUN git clone --recursive https://github.com/MercuryWorkshop/anuraOS .
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Build using make, and automatically provide '2' as input to the rootfs command
-RUN make all && \
-    (echo 2 | make rootfs)
+RUN make all && make rootfs && (echo 2 | make rootfs)
 
 # Set the port that the app will run on
-EXPOSE 8080 # Change according to your app's requirements
+EXPOSE 8080
 
 # Set the user to root for permission considerations
 USER root
