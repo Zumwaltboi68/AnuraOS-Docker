@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-17-jdk \
     gnupg2 \
     uuid-runtime \
+    jq \
     lsb-release \
     && rm -rf /var/lib/apt/lists/* 
 
@@ -30,9 +31,9 @@ RUN git clone --recursive https://github.com/MercuryWorkshop/anuraOS .
 
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN make all && make rootfs && (echo 3 | make rootfs)
+RUN make all -B
 
-EXPOSE 8080
+EXPOSE 8000
 
 USER root
 
