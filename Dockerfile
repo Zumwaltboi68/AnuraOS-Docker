@@ -1,4 +1,4 @@
-FROM debian:latest 
+FROM debian:latest
 
 # Set the working directory
 WORKDIR /app
@@ -18,18 +18,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     lsb-release \
     sudo \
-    && rm -rf /var/lib/apt/lists/* 
+    docker.io \
+    expect \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs 
-
-# Install Docker
-RUN apt-get update && apt-get install -y docker.io && rm -rf /var/lib/apt/lists/*
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
-    mkdir -p /root/.cargo/bin && \
     . $HOME/.cargo/env && \
     rustup target add wasm32-unknown-unknown
 
@@ -39,20 +38,34 @@ RUN git clone --recursive https://github.com/MercuryWorkshop/anuraOS /app
 # Set the path for cargo binaries
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Build the project
-RUN newgrp docker && yes "3" | make rootfs && make all
-
-# Expose the application port
-EXPOSE 8000
-
-# Create a new user
+# Add the new user and make sure they have sudo access
 RUN useradd -m USER && echo "USER ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+# Add USER to the Docker group
+RUN usermod -aG docker USER
 
 # Change ownership of the /app directory to the new user
 RUN chown -R USER:USER /app
 
+# Copy the entrypoint script to start Docker daemon
+COPY dockerd-entrypoint.sh /usr/bin/dockerd-entrypoint.sh
+RUN chmod +x /usr/bin/dockerd-entrypoint.sh
+
+# Automate the "make rootfs" process by providing input "2"
+RUN echo '#!/usr/bin/expect\n\
+spawn make rootfs\n\
+expect "Choose an option"\n\
+send "2\r"\n\
+expect eof' > /app/automate_make_rootfs.exp && chmod +x /app/automate_make_rootfs.exp
+
 # Switch to the new user
 USER USER
 
-# Default command to run the application
-CMD ["make", "server"]
+# Start the Docker daemon and run the automated make rootfs
+ENTRYPOINT ["/usr/bin/dockerd-entrypoint.sh"]
+
+# Automatically run the make rootfs with "2" as input and then continue with the build
+CMD ["/app/automate_make_rootfs.exp", "&&", "make", "all", "&&", "make", "server"]
+
+# Expose the application port
+EXPOSE 8000
