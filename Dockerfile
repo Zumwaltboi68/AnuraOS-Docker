@@ -47,25 +47,20 @@ RUN usermod -aG docker USER
 # Change ownership of the /app directory to the new user
 RUN chown -R USER:USER /app
 
-# Copy the entrypoint script to start Docker daemon
-COPY dockerd-entrypoint.sh /usr/bin/dockerd-entrypoint.sh
-RUN chmod +x /usr/bin/dockerd-entrypoint.sh
-
-# Automate the "make rootfs" process by providing input "2"
-RUN echo '#!/usr/bin/expect\n\
-spawn make rootfs\n\
-expect "Choose an option"\n\
-send "2\r"\n\
-expect eof' > /app/automate_make_rootfs.exp && chmod +x /app/automate_make_rootfs.exp
+# Automatically run 'make all' and 'make rootfs' with input "2" for 'make rootfs'
+RUN expect -c ' \
+    spawn make all; \
+    expect eof; \
+    spawn make rootfs; \
+    expect "Choose an option"; \
+    send "2\r"; \
+    expect eof;'
 
 # Switch to the new user
 USER USER
 
-# Start the Docker daemon and run the automated make rootfs
-ENTRYPOINT ["/usr/bin/dockerd-entrypoint.sh"]
-
-# Automatically run the make rootfs with "2" as input and then continue with the build
-CMD ["/app/automate_make_rootfs.exp", "&&", "make", "all", "&&", "make", "server"]
-
 # Expose the application port
 EXPOSE 8000
+
+# Default command to run the application
+CMD ["make", "server"]
